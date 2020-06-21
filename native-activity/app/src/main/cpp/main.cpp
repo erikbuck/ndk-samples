@@ -35,6 +35,8 @@ Modified June 2020 by Erik M. Buck to use as a teaching example for Wright State
 #include <android/log.h>
 #include <android_native_app_glue.h>
 
+#include <unistd.h>     // for fork(), pipe(), etc.
+
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
@@ -310,6 +312,54 @@ ASensorManager* AcquireASensorManagerInstance(android_app* app) {
   return getInstanceFunc();
 }
 
+//#####################################################################
+// Begin new code to demonstrate fork()
+// Create a new  child process that is a "copy" of the parent process.
+// Setup a pipe to enable communication between the processes.
+// Ref: https://www.geeksforgeeks.org/c-program-demonstrate-fork-and-pipe/
+int fds[2] = { -1, -1 };
+pid_t pid;
+
+void forkChild() {
+
+    if (0 > pipe(fds))
+    {
+        LOGW( "Pipe Failed" );
+        return;
+    }
+
+    pid = fork();
+
+    if (0 > pid)
+    {
+        LOGW( "fork Failed" );
+        return;
+    }
+
+    if(0 == pid) {
+        // In child process
+        static const char *messages[4] = {"red", "green", "blue", "any"};
+        int messageIndex = 0;
+
+        close(fds[0]);   // Close reading end of pipe
+        while(1) {
+            sleep(2);
+            const char *message = messages[messageIndex];
+            LOGI( "%s - \"%s\"\n", "Child Process...", message);
+            write(fds[1], message, strnlen(message, 128));
+            ++messageIndex;
+            if(4 <= messageIndex) {
+                messageIndex = 0;
+            }
+        }
+    } else {
+        // In parent process
+    }
+
+    return;
+}
+// End new code to demonstrate fork()
+//#####################################################################
 
 /**
  * This is the main entry point of a native application that is using
@@ -324,6 +374,12 @@ void android_main(struct android_app* state) {
     state->onAppCmd = engine_handle_cmd;
     state->onInputEvent = engine_handle_input;
     engine.app = state;
+
+    //#####################################################################
+    // Begin new code to demonstrate fork()
+    forkChild();
+    // End new code to demonstrate fork()
+    //#####################################################################
 
     // Prepare to monitor accelerometer
     engine.sensorManager = AcquireASensorManagerInstance(state);
