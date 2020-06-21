@@ -14,6 +14,10 @@
  * limitations under the License.
  *
  */
+/*
+Modified June 2020 by Erik M. Buck to use as a teaching example for Wright State University's
+ "Android Internals & Security" course CEG-4440/CEG-6440 Summer 2020.
+*/
 
 //BEGIN_INCLUDE(all)
 #include <initializer_list>
