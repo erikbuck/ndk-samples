@@ -27,7 +27,6 @@ Modified June 2020 by Erik M. Buck to use as a teaching example for Wright State
 #include <jni.h>
 #include <cerrno>
 #include <cassert>
-#include<fcntl.h>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
@@ -36,7 +35,12 @@ Modified June 2020 by Erik M. Buck to use as a teaching example for Wright State
 #include <android/log.h>
 #include <android_native_app_glue.h>
 
+//#####################################################################
+// Begin new code to demonstrate fork()
 #include <unistd.h>     // for fork(), pipe(), etc.
+#include <fcntl.h>
+// End new code to demonstrate fork()
+//#####################################################################
 
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
