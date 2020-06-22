@@ -27,6 +27,7 @@ Modified June 2020 by Erik M. Buck to use as a teaching example for Wright State
 #include <jni.h>
 #include <cerrno>
 #include <cassert>
+#include<fcntl.h>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
@@ -59,6 +60,13 @@ struct engine {
     EGLDisplay display;
     EGLSurface surface;
     EGLContext context;
+    //#####################################################################
+    // Begin new code to demonstrate fork()
+    float r;
+    float g;
+    float b;
+    // End new code to demonstrate fork()
+    //#####################################################################
     struct saved_state state;
 };
 
@@ -66,6 +74,16 @@ struct engine {
  * Initialize an EGL context for the current display.
  */
 static int engine_init_display(struct engine* engine) {
+    //#####################################################################
+    // Begin new code to demonstrate fork()
+    engine->r = 0;
+    engine->g = 255.0f/255.0f;
+    engine->b = 255.0f/255.0f;
+
+    engine->animating = 1;
+    // End new code to demonstrate fork()
+    //#####################################################################
+
     // initialize OpenGL ES and EGL
 
     /*
@@ -167,7 +185,7 @@ static void engine_draw_frame(struct engine* engine) {
     }
 
     // Just fill the screen with a color.
-    glClearColor(128.0f/255.0f, 0, 0, 1);
+    glClearColor(engine->r, engine->g, engine->b, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     eglSwapBuffers(engine->display, engine->surface);
@@ -264,7 +282,7 @@ void forkChild() {
 
     if(0 == pid) {
         // In child process
-        static const char *messages[4] = {"red", "green", "blue", "any"};
+        static const char *messages[4] = {"red,", "green,", "blue,", "any,"};
         int messageIndex = 0;
 
         close(fds[0]);   // Close reading end of pipe
@@ -304,6 +322,11 @@ void android_main(struct android_app* state) {
     //#####################################################################
     // Begin new code to demonstrate fork()
     forkChild();
+    if(0 <= fds[1]) {
+        close(fds[1]);   // Close writing end of pipe
+        fds[1] = -1;
+        fcntl(fds[0], F_SETFL, O_NONBLOCK);
+    }
     // End new code to demonstrate fork()
     //#####################################################################
 
@@ -313,12 +336,40 @@ void android_main(struct android_app* state) {
     }
 
     // loop waiting for stuff to do.
-
     while (true) {
         // Read all pending events.
         int ident;
         int events;
         struct android_poll_source* source;
+
+        //#####################################################################
+        // Begin new code to demonstrate fork()
+        if(0 <= fds[0]) {
+            // Read end of the pipe
+            char message[128];
+            memset(message, 0, 128);
+            const ssize_t countRead = read(fds[0], message, 127);
+            if(0 < countRead) {
+                LOGI( "%s - \"%s\"\n", "Child Sent...", message);
+                if(0 == strncmp(message, "red,", 4)) {
+                    engine.r = 255.0f / 255.0f;
+                    engine.g = 0;
+                    engine.b = 0;
+                } else if(0 == strncmp(message, "green,", 4)) {
+                    engine.r = 0;
+                    engine.g = 255.0f/255.0f;
+                    engine.b = 0;
+                } else if(0 == strncmp(message, "blue,", 4)) {
+                    engine.r = 0;
+                    engine.g = 0;
+                    engine.b = 255.0f/255.0f;
+                } else {
+                }
+            }
+
+        }
+        // End new code to demonstrate fork()
+        //#####################################################################
 
         // If not animating, we will block forever waiting for events.
         // If animating, we loop until all events are read, then continue
@@ -340,10 +391,9 @@ void android_main(struct android_app* state) {
 
         if (engine.animating) {
             // Done with events; draw next animation frame.
-            engine.state.angle += .01f;
-            if (engine.state.angle > 1) {
-                engine.state.angle = 0;
-            }
+            engine.r *= 0.99f;
+            engine.g *= 0.99f;
+            engine.b *= 0.99f;
 
             // Drawing is throttled to the screen update rate, so there
             // is no need to do timing here.
